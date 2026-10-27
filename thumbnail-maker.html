@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lecture Thumbnail Maker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo+Black&family=Poppins:wght@500;600;700&family=Sora:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f3f5f9; --panel:#ffffff; --ink:#101828; --muted:#5b6477; --line:#d9deea;
+  --accent:#1d4ed8; --accent-ink:#ffffff; --field:#f7f8fb;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0c1020; --panel:#151a2e; --ink:#eef1fa; --muted:#9aa4bf; --line:#2a3152;
+    --accent:#6c93ff; --accent-ink:#0c1020; --field:#1b2140; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0c1020; --panel:#151a2e; --ink:#eef1fa; --muted:#9aa4bf; --line:#2a3152;
+  --accent:#6c93ff; --accent-ink:#0c1020; --field:#1b2140; color-scheme:dark;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Sora",system-ui,-apple-system,"Segoe UI","Noto Sans Bengali",sans-serif;font-size:15px;line-height:1.45}
+.wrap{max-width:1380px;margin:0 auto;padding:20px;display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:20px;align-items:start}
+@media (max-width:980px){.wrap{grid-template-columns:minmax(0,1fr)}}
+h1{font-size:20px;margin:0 0 4px;font-weight:700}
+.sub{margin:0 0 16px;color:var(--muted);font-size:13.5px}
+.stage{position:sticky;top:calc(12px + env(safe-area-inset-top,0px))}
+@media (max-width:980px){.stage{position:static}}
+.canvas-frame{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px}
+canvas{display:block;width:100%;height:auto;border-radius:8px;background:#000}
+.actions{display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap}
+button{font:inherit;cursor:pointer}
+.primary{background:var(--accent);color:var(--accent-ink);border:0;border-radius:10px;padding:12px 22px;font-weight:700;font-size:15px}
+.primary:hover{filter:brightness(1.08)}
+.primary:focus-visible,.ghost:focus-visible,input:focus-visible,select:focus-visible,.swatch:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13.5px}
+.status{font-size:13px;color:var(--muted)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px 16px 16px}
+fieldset{border:0;margin:0;padding:14px 0 6px;border-bottom:1px solid var(--line)}
+fieldset:last-child{border-bottom:0}
+legend{font-weight:700;font-size:14px;padding:0;margin-bottom:10px;float:left;width:100%}
+fieldset>*:not(legend){clear:both}
+label{display:block;font-size:12.5px;color:var(--muted);margin:0 0 10px}
+label>span{display:block;margin-bottom:4px}
+input[type=text],input[type=date],select{width:100%;font:inherit;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.swatches{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.swatch{width:52px;height:34px;border-radius:8px;border:2px solid transparent;padding:0;position:relative;overflow:hidden;box-shadow:0 0 0 1px var(--line)}
+.swatch i{position:absolute;right:0;bottom:0;width:18px;height:14px;border-top-left-radius:6px}
+.swatch[aria-pressed=true]{border-color:var(--ink)}
+.colors{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.colors label{margin:0;text-align:center;font-size:11.5px}
+input[type=color]{width:100%;height:38px;border:1px solid var(--line);border-radius:8px;background:var(--field);padding:2px;cursor:pointer}
+.checks{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px}
+.checks label{display:flex;align-items:center;gap:8px;margin:0;color:var(--ink);font-size:13.5px;cursor:pointer}
+.checks input{width:17px;height:17px;accent-color:var(--accent)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.file{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.file input[type=file]{font:inherit;font-size:12.5px;max-width:100%}
+.hint{font-size:12px;color:var(--muted);margin:6px 0 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <main class="stage">
+    <h1>Lecture Thumbnail Maker</h1>
+    <p class="sub">Fill in the class details, adjust colors and elements, then download a 1280×720 PNG for YouTube.</p>
+    <div class="canvas-frame"><canvas id="cv" width="1280" height="720" aria-label="Thumbnail preview"></canvas></div>
+    <div class="actions">
+      <button class="primary" id="dl">Download PNG</button>
+      <span class="status" id="status" role="status" aria-live="polite"></span>
+    </div>
+  </main>
+
+  <aside class="panel">
+    <fieldset>
+      <legend>Class details</legend>
+      <div class="row2">
+        <label><span>Subject code</span><input type="text" id="code" value="EEE 201" autocomplete="off"></label>
+        <label><span>Date</span><input type="date" id="date"></label>
+      </div>
+      <label><span>Subject name</span><input type="text" id="subject" value="Electrical Circuits I" autocomplete="off"></label>
+      <label><span>Teacher name</span><input type="text" id="teacher" value="Md. Rahman" autocomplete="off"></label>
+      <label><span>Topic</span><input type="text" id="topic" value="Thevenin’s Theorem" autocomplete="off"></label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Colors</legend>
+      <div class="swatches" id="swatches"></div>
+      <div class="colors">
+        <label><span>Back 1</span><input type="color" id="c_bg"></label>
+        <label><span>Back 2</span><input type="color" id="c_bg2"></label>
+        <label><span>Accent</span><input type="color" id="c_acc"></label>
+        <label><span>Text</span><input type="color" id="c_txt"></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Elements</legend>
+      <div class="checks">
+        <label><input type="checkbox" id="e_grid" checked> Grid lines</label>
+        <label><input type="checkbox" id="e_circles" checked> Rings</label>
+        <label><input type="checkbox" id="e_stripes"> Diagonal band</label>
+        <label><input type="checkbox" id="e_dots" checked> Dot matrix</label>
+        <label><input type="checkbox" id="e_glow" checked> Glow</label>
+        <label><input type="checkbox" id="e_frame"> Border frame</label>
+        <label><input type="checkbox" id="e_shadow" checked> Topic shadow</label>
+        <label><input type="checkbox" id="e_upper" checked> Uppercase topic</label>
+        <label><input type="checkbox" id="e_tag" checked> Tag badge</label>
+      </div>
+      <label style="margin-top:12px"><span>Tag text</span><input type="text" id="tag" value="LECTURE" autocomplete="off"></label>
+      <label><span>Topic font</span>
+        <select id="font">
+          <option value="Anton">Anton (tall, condensed)</option>
+          <option value="Archivo Black">Archivo Black (wide, heavy)</option>
+          <option value="Poppins">Poppins (clean)</option>
+        </select>
+      </label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Logo</legend>
+      <div class="file">
+        <input type="file" id="logoFile" accept="image/*">
+        <button class="ghost" id="logoReset" type="button">Remove</button>
+      </div>
+      <p class="hint">Upload the official BUET logo (PNG with a transparent background looks best). Until then, a placeholder badge is shown.</p>
+      <label style="margin-top:10px"><span>Logo size</span><input type="range" id="logoSize" min="110" max="240" value="170"></label>
+      <label><span>Logo position</span>
+        <select id="logoPos">
+          <option value="right">Top right</option>
+          <option value="left">Top left</option>
+        </select>
+      </label>
+    </fieldset>
+  </aside>
+</div>
+
+<script>
+(function(){
+  var W=1280,H=720,M=64;
+  var cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+  var $=function(id){return document.getElementById(id)};
+
+  var PRESETS=[
+    {n:'Navy & gold',bg:'#0b1f4d',bg2:'#1f4fb8',acc:'#f5b301',txt:'#ffffff'},
+    {n:'Crimson',bg:'#3a0a14',bg2:'#9b1d33',acc:'#ffd166',txt:'#ffffff'},
+    {n:'Emerald',bg:'#032b25',bg2:'#0b7a58',acc:'#f4e04d',txt:'#ffffff'},
+    {n:'Violet',bg:'#1b1040',bg2:'#5b2bd6',acc:'#ff7ab8',txt:'#ffffff'},
+    {n:'Sunset',bg:'#2b0f3a',bg2:'#e4572e',acc:'#ffd23f',txt:'#ffffff'},
+    {n:'Graphite',bg:'#10151f',bg2:'#374151',acc:'#22d3ee',txt:'#ffffff'},
+    {n:'Daylight',bg:'#e8f0ff',bg2:'#b9d0ff',acc:'#e11d48',txt:'#0b1f4d'}
+  ];
+
+  /* ---------- helpers ---------- */
+  function rgba(hex,a){
+    var h=hex.replace('#','');
+    var r=parseInt(h.substr(0,2),16),g=parseInt(h.substr(2,2),16),b=parseInt(h.substr(4,2),16);
+    return 'rgba('+r+','+g+','+b+','+a+')';
+  }
+  function lum(hex){
+    var h=hex.replace('#','');
+    var c=[0,2,4].map(function(i){var v=parseInt(h.substr(i,2),16)/255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4)});
+    return 0.2126*c[0]+0.7152*c[1]+0.0722*c[2];
+  }
+  function inkOn(hex){return lum(hex)>0.45?'#10151f':'#ffffff'}
+  function rr(x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+    ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+    ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+    ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
+  }
+  function wrap(text,maxW){
+    var words=text.split(/\s+/).filter(Boolean),lines=[],cur='';
+    for(var i=0;i<words.length;i++){
+      var t=cur?cur+' '+words[i]:words[i];
+      if(!cur||ctx.measureText(t).width<=maxW)cur=t;else{lines.push(cur);cur=words[i]}
+    }
+    if(cur)lines.push(cur);
+    return lines;
+  }
+  function fmtDate(v){
+    if(!v)return '';
+    var d=new Date(v+'T00:00:00');
+    if(isNaN(d))return v;
+    return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+  }
+  var FALL=', "Noto Sans Bengali", "Segoe UI", Arial, sans-serif';
+
+  /* ---------- logo ---------- */
+  var logoImg=null;
+  $('logoFile').addEventListener('change',function(e){
+    var f=e.target.files&&e.target.files[0];
+    if(!f)return;
+    var rd=new FileReader();
+    rd.onload=function(){
+      var im=new Image();
+      im.onload=function(){logoImg=im;draw()};
+      im.src=rd.result;
+    };
+    rd.readAsDataURL(f);
+  });
+  $('logoReset').addEventListener('click',function(){logoImg=null;$('logoFile').value='';draw()});
+
+  /* ---------- state ---------- */
+  function S(){
+    return {
+      code:$('code').value.trim(),subject:$('subject').value.trim(),teacher:$('teacher').value.trim(),
+      topic:$('topic').value.trim(),date:fmtDate($('date').value),
+      bg:$('c_bg').value,bg2:$('c_bg2').value,acc:$('c_acc').value,txt:$('c_txt').value,
+      grid:$('e_grid').checked,circles:$('e_circles').checked,stripes:$('e_stripes').checked,
+      dots:$('e_dots').checked,glow:$('e_glow').checked,frame:$('e_frame').checked,
+      shadow:$('e_shadow').checked,upper:$('e_upper').checked,tag:$('e_tag').checked,tagText:$('tag').value.trim(),
+      font:$('font').value,logoSize:+$('logoSize').value,logoPos:$('logoPos').value
+    };
+  }
+
+  /* ---------- draw ---------- */
+  function draw(){
+    var s=S();
+    ctx.clearRect(0,0,W,H);
+    var left=s.logoPos==='left';
+
+    // background
+    var g=ctx.createLinearGradient(0,0,W,H);
+    g.addColorStop(0,s.bg);g.addColorStop(1,s.bg2);
+    ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+
+    var L=s.logoSize;
+    var lx=left?M+L/2:W-M-L/2, ly=M+L/2;
+
+    if(s.glow){
+      var rg=ctx.createRadialGradient(lx,ly,10,lx,ly,520);
+      rg.addColorStop(0,rgba(s.acc,0.42));rg.addColorStop(1,rgba(s.acc,0));
+      ctx.fillStyle=rg;ctx.fillRect(0,0,W,H);
+    }
+    if(s.grid){
+      ctx.strokeStyle=rgba(s.txt,0.07);ctx.lineWidth=2;
+      ctx.beginPath();
+      for(var x=0;x<=W;x+=64){ctx.moveTo(x,0);ctx.lineTo(x,H)}
+      for(var y=0;y<=H;y+=64){ctx.moveTo(0,y);ctx.lineTo(W,y)}
+      ctx.stroke();
+    }
+    if(s.stripes){
+      ctx.fillStyle=rgba(s.acc,0.16);
+      var sx=left?0:W;
+      ctx.beginPath();
+      if(left){ctx.moveTo(0,0);ctx.lineTo(380,0);ctx.lineTo(0,380)}
+      else{ctx.moveTo(W,H);ctx.lineTo(W-520,H);ctx.lineTo(W,H-520)}
+      ctx.closePath();ctx.fill();
+      ctx.fillStyle=rgba(s.acc,0.28);
+      ctx.beginPath();
+      if(left){ctx.moveTo(0,0);ctx.lineTo(190,0);ctx.lineTo(0,190)}
+      else{ctx.moveTo(W,H);ctx.lineTo(W-260,H);ctx.lineTo(W,H-260)}
+      ctx.closePath();ctx.fill();
+    }
+    if(s.circles){
+      var cx=left?W:0, cy=H;
+      // rings anchored at the corner opposite the logo
+      cx=left?W:0;cy=H;
+      ctx.lineWidth=3;
+      for(var r=140;r<=620;r+=96){
+        ctx.strokeStyle=rgba(s.acc,Math.max(0.08,0.34-r/2000));
+        ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
+      }
+    }
+    if(s.dots){
+      ctx.fillStyle=rgba(s.txt,0.2);
+      var ox=left?W-64-8*28:64, oy=left?H-64-5*28:H-64-5*28; // placed top-opposite-ish
+      ox=left?W-M-7*28:W-M-7*28; oy=M+ (left?0:0);
+      if(!left){ox=M+330;oy=H-M-4*28-110}
+      for(var i=0;i<8;i++)for(var j=0;j<5;j++){
+        ctx.beginPath();ctx.arc(ox+i*28,oy+j*28,4,0,Math.PI*2);ctx.fill();
+      }
+    }
+    if(s.frame){
+      ctx.strokeStyle=s.acc;ctx.lineWidth=6;
+      rr(22,22,W-44,H-44,22);ctx.stroke();
+    }
+
+    // logo
+    drawLogo(lx,ly,L,s);
+
+    // subject code chip + tag
+    var chipH=62,chipX=left?M+L+30:M,chipY=M;
+    var chipRight=chipX;
+    if(s.code){
+      ctx.font='700 40px "Poppins"'+FALL;
+      var cw=ctx.measureText(s.code).width+48;
+      ctx.fillStyle=s.acc;rr(chipX,chipY,cw,chipH,14);ctx.fill();
+      ctx.fillStyle=inkOn(s.acc);ctx.textBaseline='middle';ctx.textAlign='left';
+      ctx.fillText(s.code,chipX+24,chipY+chipH/2+2);
+      chipRight=chipX+cw;
+    }
+    if(s.tag&&s.tagText){
+      ctx.font='600 26px "Poppins"'+FALL;
+      var tw=ctx.measureText(s.tagText).width+40,th=46;
+      var tx=chipRight+(s.code?16:0),ty=chipY+(chipH-th)/2;
+      ctx.strokeStyle=s.acc;ctx.lineWidth=3;rr(tx,ty,tw,th,23);ctx.stroke();
+      ctx.fillStyle=s.txt;ctx.textBaseline='middle';
+      ctx.fillText(s.tagText,tx+20,ty+th/2+2);
+    }
+
+    // subject name
+    var subjX=left?M+L+30:M;
+    var subjW=W-2*M-L-30;
+    var subjBottom=chipY+chipH;
+    if(s.subject){
+      ctx.font='600 40px "Poppins"'+FALL;ctx.fillStyle=s.txt;ctx.textBaseline='middle';
+      var sl=wrap(s.subject,subjW).slice(0,2);
+      for(var k=0;k<sl.length;k++)ctx.fillText(sl[k],subjX,chipY+chipH+38+k*50);
+      subjBottom=chipY+chipH+38+(sl.length-1)*50+26;
+    }
+
+    // bottom row sizes
+    var panelH=84,panelY=H-M-panelH;
+
+    // topic
+    var topicTop=Math.max(subjBottom,M+L)+22;
+    var topicBottom=panelY-22;
+    var areaH=topicBottom-topicTop,areaW=W-2*M;
+    var text=s.upper?s.topic.toUpperCase():s.topic;
+    if(text){
+      var size,lines,lh,found=false;
+      for(size=190;size>=44;size-=4){
+        ctx.font=(s.font==='Poppins'?'700 ':'400 ')+size+'px "'+s.font+'"'+FALL;
+        lines=wrap(text,areaW);lh=size*(s.font==='Anton'?1.12:1.08);
+        if(lines.length<=4&&lines.length*lh<=areaH){found=true;break}
+      }
+      if(!found){size=44;ctx.font=(s.font==='Poppins'?'700 ':'400 ')+size+'px "'+s.font+'"'+FALL;lines=wrap(text,areaW).slice(0,4);lh=size*1.1}
+      var blockH=lines.length*lh,startY=topicTop+(areaH-blockH)/2;
+      ctx.textBaseline='middle';ctx.textAlign='left';
+      for(var n=0;n<lines.length;n++){
+        var yy=startY+n*lh+lh/2;
+        if(s.shadow){ctx.fillStyle=s.acc;ctx.fillText(lines[n],M+Math.max(4,size*0.04),yy+Math.max(4,size*0.04))}
+        ctx.fillStyle=s.txt;ctx.fillText(lines[n],M,yy);
+      }
+    }
+
+    // teacher panel
+    if(s.teacher){
+      ctx.font='600 36px "Poppins"'+FALL;
+      var nw=ctx.measureText(s.teacher).width;
+      ctx.font='500 20px "Poppins"'+FALL;
+      var lw=ctx.measureText('Teacher').width;
+      var pw=Math.max(nw,lw)+28+40;
+      ctx.fillStyle=rgba(s.txt,0.13);rr(M,panelY,pw,panelH,16);ctx.fill();
+      ctx.fillStyle=s.acc;rr(M,panelY,10,panelH,5);ctx.fill();
+      ctx.textBaseline='middle';ctx.textAlign='left';
+      ctx.fillStyle=rgba(s.txt,0.75);ctx.font='500 20px "Poppins"'+FALL;
+      ctx.fillText('Teacher',M+30,panelY+24);
+      ctx.fillStyle=s.txt;ctx.font='600 36px "Poppins"'+FALL;
+      ctx.fillText(s.teacher,M+30,panelY+57);
+    }
+
+    // date chip
+    if(s.date){
+      ctx.font='600 34px "Poppins"'+FALL;
+      var dw=ctx.measureText(s.date).width+52,dh=64;
+      var dx=W-M-dw,dy=panelY+(panelH-dh)/2;
+      ctx.strokeStyle=s.acc;ctx.lineWidth=4;rr(dx,dy,dw,dh,32);ctx.stroke();
+      ctx.fillStyle=s.txt;ctx.textBaseline='middle';ctx.textAlign='left';
+      ctx.fillText(s.date,dx+26,dy+dh/2+2);
+    }
+  }
+
+  function drawLogo(cx,cy,L,s){
+    var r=L/2;
+    ctx.save();
+    ctx.shadowColor='rgba(0,0,0,0.35)';ctx.shadowBlur=24;ctx.shadowOffsetY=8;
+    ctx.fillStyle='#ffffff';ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+    ctx.strokeStyle=s.acc;ctx.lineWidth=8;
+    ctx.beginPath();ctx.arc(cx,cy,r-4,0,Math.PI*2);ctx.stroke();
+    if(logoImg){
+      var pad=r*0.16,box=(r-pad)*2*0.92;
+      var sc=Math.min(box/logoImg.width,box/logoImg.height);
+      var w=logoImg.width*sc,h=logoImg.height*sc;
+      ctx.drawImage(logoImg,cx-w/2,cy-h/2,w,h);
+    }else{
+      ctx.fillStyle=s.bg;
+      ctx.font='700 '+Math.round(L*0.26)+'px "Poppins"'+FALL;
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText('BUET',cx,cy+2);
+      ctx.textAlign='left';
+    }
+  }
+
+  /* ---------- UI wiring ---------- */
+  var sw=$('swatches');
+  PRESETS.forEach(function(p,i){
+    var b=document.createElement('button');
+    b.type='button';b.className='swatch';b.title=p.n;b.setAttribute('aria-label',p.n);b.setAttribute('aria-pressed','false');
+    b.style.background='linear-gradient(135deg,'+p.bg+','+p.bg2+')';
+    var d=document.createElement('i');d.style.background=p.acc;b.appendChild(d);
+    b.addEventListener('click',function(){applyPreset(i)});
+    sw.appendChild(b);
+  });
+  function applyPreset(i){
+    var p=PRESETS[i];
+    $('c_bg').value=p.bg;$('c_bg2').value=p.bg2;$('c_acc').value=p.acc;$('c_txt').value=p.txt;
+    var bs=sw.children;for(var k=0;k<bs.length;k++)bs[k].setAttribute('aria-pressed',k===i?'true':'false');
+    draw();
+  }
+  ['c_bg','c_bg2','c_acc','c_txt'].forEach(function(id){
+    $(id).addEventListener('input',function(){
+      var bs=sw.children;for(var k=0;k<bs.length;k++)bs[k].setAttribute('aria-pressed','false');
+      draw();
+    });
+  });
+  ['code','subject','teacher','topic','date','tag','font','logoSize','logoPos',
+   'e_grid','e_circles','e_stripes','e_dots','e_glow','e_frame','e_shadow','e_upper','e_tag'].forEach(function(id){
+    $(id).addEventListener('input',draw);
+    $(id).addEventListener('change',draw);
+  });
+
+  var today=new Date();
+  $('date').value=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+  applyPreset(0);
+
+  // redraw once web fonts are ready
+  function loadFonts(){
+    if(!document.fonts||!document.fonts.load)return;
+    var fl=['400 100px "Anton"','400 100px "Archivo Black"','500 20px "Poppins"','600 20px "Poppins"','700 20px "Poppins"'];
+    Promise.all(fl.map(function(f){return document.fonts.load(f,'Aa ABC')})).then(draw,draw);
+    document.fonts.ready.then(draw);
+  }
+  loadFonts();
+
+  /* ---------- download ---------- */
+  function fileName(){
+    var base=(($('code').value+' '+$('topic').value).trim()||'thumbnail').replace(/[^\w\u0980-\u09FF]+/g,'_').replace(/^_+|_+$/g,'');
+    return (base||'thumbnail')+'.png';
+  }
+  var statusEl=$('status');
+  $('dl').addEventListener('click',function(){
+    draw();
+    statusEl.textContent='';
+    cv.toBlob(async function(blob){
+      if(!blob){statusEl.textContent='Could not create the image. Try again.';return}
+      var dlc=null;
+      try{dlc=window.claude?await window.claude.use('downloads'):null}catch(e){dlc=null}
+      if(dlc){
+        try{
+          await dlc.save({filename:fileName(),data:blob});
+          statusEl.textContent='PNG saved.';
+        }catch(err){
+          statusEl.textContent=(err&&err.code==='declined')?'Download cancelled.':'Download is unavailable here. Right-click the preview and choose Save image as…';
+        }
+        return;
+      }
+      try{
+        var a=document.createElement('a');
+        a.href=URL.createObjectURL(blob);a.download=fileName();
+        document.body.appendChild(a);a.click();a.remove();
+        statusEl.textContent='PNG downloaded.';
+      }catch(e2){
+        statusEl.textContent='Right-click the preview and choose Save image as…';
+      }
+    },'image/png');
+  });
+})();
+</script>
+</body>
+</html>
